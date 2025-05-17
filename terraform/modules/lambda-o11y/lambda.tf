@@ -60,13 +60,18 @@ resource "aws_s3_object" "zip" {
 
 resource "aws_lambda_function" "this" {
   function_name    = "${var.stage}-softorwhite-lambda-o11y"
-  handler          = "main.lambda_handler"
-  runtime          = "provided.al2023"
+  handler          = "bootstrap"
+  runtime          = "provided.al2"
   s3_bucket        = aws_s3_bucket.this.bucket
   s3_key           = aws_s3_object.zip.key
   source_code_hash = local.this_function_code
   role             = aws_iam_role.this.arn
   timeout          = 900
+  tracing_config {
+    mode = "Active"
+  }
+
+  layers           = ["arn:aws:lambda:${data.aws_region.current.name}:901920570463:layer:aws-otel-collector-amd64-ver-0-115-0:3"]
   environment {
     variables = {
       STAGE = var.stage
@@ -101,3 +106,12 @@ resource "aws_iam_role_policy_attachment" "vpc_access_execution_this" {
 }
 
 
+resource "aws_iam_role_policy_attachment" "test_xray" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "hello-lambda-cloudwatch-insights" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
